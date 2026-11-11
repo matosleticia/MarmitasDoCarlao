@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marmitas do Carlão — Chat de Vendas</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">M</div>
+        <div class="brand-text">
+          <strong>Marmitas do Carlão</strong>
+          <span>Atendimento de vendas 100% no seu navegador</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="status-chip" class="chip">carregando…</span>
+        <button id="btn-config" class="btn ghost" type="button">Configurações</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- CHAT -->
+      <section class="chat">
+        <div id="messages" class="messages" aria-live="polite"></div>
+
+        <div id="chips" class="chips"></div>
+
+        <form id="composer" class="composer" autocomplete="off">
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Digite seu pedido… ex.: 2 bifes de vaca sem cebola, ponto mal passado"
+            maxlength="800"
+          ></textarea>
+          <button id="btn-send" class="btn primary" type="submit">Enviar</button>
+        </form>
+        <p class="disclaimer">
+          Aplicação totalmente client-side: cardápio, carrinho e guardrails rodam no navegador;
+          a IA é chamada direto do seu dispositivo para o provedor escolhido.
+        </p>
+      </section>
+
+      <!-- PEDIDO -->
+      <aside class="pedido">
+        <h2>Seu pedido</h2>
+        <div id="cart-list" class="cart-list">
+          <p class="cart-vazio">Carrinho vazio.</p>
+        </div>
+
+        <div class="totals">
+          <div class="row"><span>Subtotal</span><strong id="t-subtotal">R$ 0,00</strong></div>
+          <div class="row">
+            <span>Entrega</span><strong id="t-entrega">R$ 0,00</strong>
+          </div>
+          <div class="row total"><span>Total</span><strong id="t-total">R$ 0,00</strong></div>
+          <p id="t-aviso" class="t-aviso"></p>
+        </div>
+
+        <button id="btn-checkout" class="btn primary block" type="button" disabled>
+          Finalizar pedido
+        </button>
+        <button id="btn-clear" class="btn ghost block" type="button">Esvaziar carrinho</button>
+
+        <div class="info-box">
+          <h3>Informações</h3>
+          <p id="info-horario"></p>
+          <p id="info-entrega"></p>
+          <p id="info-pagamento"></p>
+        </div>
+      </aside>
+    </main>
+
+    <!-- MODAL: CONFIGURAÇÕES -->
+    <div id="modal-config" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>Configurações do chatbot</h2>
+          <button class="btn ghost" type="button" data-close="modal-config">✕</button>
+        </div>
+
+        <label class="field">
+          <span>Provedor de IA</span>
+          <select id="cfg-provider">
+            <option value="regras">Modo regras (sem IA, funciona offline)</option>
+            <option value="openai">API OpenAI-compatível (chave no navegador)</option>
+            <option value="webllm">WebLLM (modelo local, sem chave, requer WebGPU)</option>
+          </select>
+        </label>
+
+        <div id="group-openai" class="group">
+          <label class="field">
+            <span>Provedor (preset)</span>
+            <select id="cfg-preset">
+              <option value="openai">OpenAI</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Endpoint (base URL)</span>
+            <input id="cfg-baseurl" type="text" placeholder="https://api.openai.com/v1" />
+          </label>
+          <label class="field">
+            <span>Chave de API</span>
+            <input id="cfg-apikey" type="password" placeholder="sk-…" />
+          </label>
+          <label class="field">
+            <span>Modelo</span>
+            <input id="cfg-model" type="text" placeholder="gpt-4o-mini" />
+          </label>
+          <label class="field">
+            <span>Temperatura: <b id="cfg-temp-val">0.4</b></span>
+            <input id="cfg-temp" type="range" min="0" max="1.2" step="0.1" />
+          </label>
+        </div>
+
+        <div id="group-webllm" class="group hidden">
+          <label class="field">
+            <span>Modelo local (WebLLM)</span>
+            <input
+              id="cfg-webllm-model"
+              list="webllm-models"
+              placeholder="Hermes-3-Llama-3.2-3B-q4f16_1-MLC"
+            />
+            <datalist id="webllm-models">
+              <option value="Hermes-3-Llama-3.2-3B-q4f16_1-MLC"></option>
+              <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC"></option>
+              <option value="Qwen2.5-3B-Instruct-q4f16_1-MLC"></option>
+              <option value="Hermes-3-Llama-3.1-8B-q4f16_1-MLC"></option>
+              <option value="Llama-3.1-8B-Instruct-q4f16_1-MLC"></option>
+              <option value="Mistral-7B-Instruct-v0.3-q4f16_1-MLC"></option>
+            </datalist>
+          </label>
+          <button id="btn-load-model" class="btn ghost" type="button">
+            Pré-carregar modelo (download ~1–5 GB)
+          </button>
+          <div id="webllm-progress" class="progress hidden">
+            <div id="webllm-bar" class="bar"></div>
+            <span id="webllm-progress-text">…</span>
+          </div>
+          <p class="hint">
+            Requer navegador com WebGPU (Chrome/Edge atualizado). O modelo é baixado e cacheado
+            localmente; nada sai do seu dispositivo.
+          </p>
+        </div>
+
+        <p class="hint">
+          Sua chave fica apenas no <b>localStorage</b> deste navegador — não há servidor nesta
+          aplicação.
+        </p>
+        <p id="cfg-erro" class="hint" style="color: #8a2b2b"></p>
+
+        <div class="modal-foot">
+          <button class="btn ghost" type="button" data-close="modal-config">Cancelar</button>
+          <button id="btn-save-config" class="btn primary" type="button">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CHECKOUT -->
+    <div id="modal-checkout" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>Finalizar pedido</h2>
+          <button class="btn ghost" type="button" data-close="modal-checkout">✕</button>
+        </div>
+        <label class="field">
+          <span>Endereço de entrega</span>
+          <textarea
+            id="co-endereco"
+            rows="2"
+            placeholder="Rua, número, bairro — ex.: Rua das Flores, 45, Centro"
+          ></textarea>
+        </label>
+        <label class="field">
+          <span>Forma de pagamento</span>
+          <select id="co-pagamento"></select>
+        </label>
+        <label class="field">
+          <span>Telefone (opcional)</span>
+          <input id="co-telefone" type="tel" placeholder="(35) 99999-0000" />
+        </label>
+        <p id="co-total" class="co-total"></p>
+        <div class="modal-foot">
+          <button class="btn ghost" type="button" data-close="modal-checkout">Voltar</button>
+          <button id="btn-confirm-checkout" class="btn primary" type="button">
+            Confirmar pedido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/menu.js"></script>
+    <script src="js/guards.js"></script>
+    <script src="js/cart.js"></script>
+    <script src="js/llm.js"></script>
+    <script src="js/fallback.js"></script>
+    <script src="js/agent.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
