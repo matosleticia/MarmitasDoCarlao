@@ -12,7 +12,7 @@
     groq: {
       rotulo: "Groq",
       baseUrl: "https://api.groq.com/openai/v1",
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
     },
     openrouter: {
       rotulo: "OpenRouter",
@@ -42,6 +42,20 @@
   let engineModel = null;
   let webllmMod = null;
 
+  const MODELOS_OBRIGATOS = {
+    "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b": "qwen/qwen3.8-27b",
+    "meta-llama/llama-4-scout-17b-16e-instruct": "openai/gpt-oss-120b",
+    "qwen/qwen3-32b": "qwen/qwen3.8-27b",
+  };
+
+  function migrar(cfg) {
+    const sub = MODELOS_OBRIGATOS[cfg.model];
+    if (sub) cfg.model = sub;
+    return cfg;
+  }
+
   function carregar() {
     try {
       const raw = localStorage.getItem(CHAVE);
@@ -49,6 +63,7 @@
     } catch (e) {
       cfg = Object.assign({}, PADRAO);
     }
+    cfg = migrar(cfg);
     return cfg;
   }
 
