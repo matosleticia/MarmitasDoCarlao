@@ -112,6 +112,12 @@
     if (status === 401 || status === 403) {
       return "Chave de API inválida ou sem permissão. Verifique em Configurações.";
     }
+    if (status === 402) {
+      return (
+        "Saldo insuficiente na conta deste provedor. Recarregue créditos ou use um provedor gratuito " +
+        "(Groq, OpenRouter com modelo :free ou WebLLM) em Configurações."
+      );
+    }
     if (status === 429) {
       return "Limite de requisições atingido no provedor de IA. Tente novamente em instantes.";
     }
