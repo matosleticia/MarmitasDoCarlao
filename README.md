@@ -35,6 +35,7 @@ A chave de API fica **apenas no `localStorage`** deste navegador — não há se
 - **Carrinho** persistente com subtotal, taxa de entrega (grátis acima de R$ 70) e total
 - **Checkout** com endereço, forma de pagamento e telefone → gera protocolo `PED-xxxxxx-xx` (pedido é **simulação de venda**)
 - **Guardrails** (`js/guards.js`): sanitização de entrada/saída, detecção de jailbreak e injeção, limites de tamanho e rate limit
+- **Camada de decisão** (`js/decision.js`): classifica a intenção e valida o escopo de cada mensagem antes de chamar a IA — perguntas fora do assunto são recusadas com orientação, sem custo de chamada
 - **Fallback por regras** (`js/fallback.js`): se a IA falhar ou no modo regras, um interpretador local responde pedidos, cardápio, totais e finalização
 
 ## Estrutura
@@ -47,11 +48,26 @@ js/cart.js      Cart — linhas do carrinho, cálculo de preços e totais (local
 js/guards.js    Guards — sanitização, anti-jailbreak/anti-injeção, validações
 js/llm.js       LLM — presets, config salva, chat OpenAI-compatível e WebLLM
 js/fallback.js  Fallback — interpretador offline por regras
+js/decision.js  Decision — camada de decisão: classifica intenção e valida escopo
 js/agent.js     Agent — prompt de sistema, tools, loop de execução (máx. 6 passos)
 js/app.js       UI — mensagens, carrinho, modais, chips, fluxo de checkout
 ```
 
-Ordem de carregamento dos scripts importa (`index.html:198-205`): cada módulo expõe uma global (`window.Rest`, `window.Cart`, `window.Guards`, `window.LLM`, `window.Fallback`, `window.Agent`).
+Ordem de carregamento dos scripts importa (`index.html:198-206`): cada módulo expõe uma global (`window.Rest`, `window.Cart`, `window.Guards`, `window.LLM`, `window.Fallback`, `window.Decision`, `window.Agent`).
+
+## Arquitetura em camadas
+
+Cada mensagem passa por 3 camadas, nesta ordem:
+
+1. **Camada de decisão** (`js/decision.js` + `js/guards.js`) — roda **antes** de qualquer chamada ao modelo generativo:
+   - `Guards` sanitiza a entrada e bloqueia jailbreak/injeção.
+   - `Decision.avaliar()` classifica a intenção (`cardapio`, `adicao`, `remocao`, `carrinho_total`, `checkout`, `info_restaurante`, `preco_item`, `saudacao`, …) e valida o escopo.
+   - Fora do escopo (matemática, programação, notícias, poesia, etc.) → **recusa educada com orientação de funcionalidades, sem gastar chamada de IA**.
+   - Mensagens curtas/sequenciais herdam a última intenção do contexto (ex.: "sem cebola", "Rua X, 45").
+2. **Camada de negócio** (`js/agent.js` tools + `js/menu.js` + `js/cart.js`) — a IA só consulta dados reais via ferramentas (`obter_cardapio`, `adicionar_ao_carrinho`, `obter_carrinho`, `finalizar_pedido`…); nunca inventa preços, itens ou disponibilidade.
+3. **Camada de resposta** (`js/agent.js` system prompt) — gera resposta natural em pt-BR, restrita ao escopo do restaurante, com a intenção/fluxo detectados pela camada de decisão injetados no prompt.
+
+O modo regras (`js/fallback.js`) e o modo IA compartilham a mesma camada de decisão — a validação de escopo acontece antes dos dois.
 
 ## Chaves de `localStorage`
 

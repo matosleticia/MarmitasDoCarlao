@@ -236,11 +236,32 @@
     ajustarInput();
 
     addMsg(entrada.texto, "user");
+
+    // Camada de decisão: valida escopo ANTES de chamar o modelo generativo.
+    const decisao = Decision.avaliar(entrada.texto, {
+      carrinhoItens: Cart.resumo().itens.length,
+    });
+
+    if (decisao.acao === "recusar") {
+      Decision.registrar(decisao);
+      addMsg(decisao.resposta, "bot");
+      historico.push({ role: "user", content: entrada.texto });
+      historico.push({ role: "assistant", content: decisao.resposta });
+      if (historico.length > 32) historico = historico.slice(-32);
+      ocupado = false;
+      els.btnSend.disabled = false;
+      els.input.focus();
+      return;
+    }
+
+    Decision.registrar(decisao);
     const typing = mostrarTyping();
 
     let resultado;
     for (let tentativa = 0; tentativa < 2; tentativa++) {
       resultado = await Agent.run(entrada.texto, historico, {
+        intencao: decisao.intent,
+        fluxo: decisao.fluxo,
         onTool: function (evt) {
           addToolEvent(evt);
           renderCart();
